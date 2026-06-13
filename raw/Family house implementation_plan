@@ -1,0 +1,347 @@
+# 🏨 Pratunam Family House — Unified Launch Gate Plan
+
+> **Date**: 2026-04-23 | **Scope**: `ask-without-cost-main` (Website) + `mind-meter-app-main` (PMS)
+> **Source**: Merged from System Deep Audit + Critical Launch Gate requirements
+
+---
+
+## Architecture Overview
+
+```mermaid
+graph TB
+    subgraph "Guest-Facing Website · Supabase Project A"
+        WEB["Booking Website<br/>Vite + React + TailwindCSS"]
+        CF_ROOMS["public-rooms<br/>(proxy to PMS)"]
+        CF_CHECKOUT["create-checkout<br/>(Stripe session + hold)"]
+        CF_WEBHOOK["stripe-webhook<br/>(PMS push + email + LINE)"]
+        CF_CONFLICTS["check-booking-conflicts"]
+        DB_A["Supabase DB A<br/>bookings, booking_holds,<br/>branches, booking_flow_logs"]
+    end
+
+    subgraph "PMS · Supabase Project B"
+        PMS_UI["PMS Dashboard<br/>Vite + React"]
+        CF_AVAIL["check-availability"]
+        CF_SYNC["rpa-sync<br/>(booking + availability)"]
+        CF_HEARTBEAT["rpa-heartbeat"]
+        CF_HEAL["rpa-self-heal"]
+        CF_INBOUND["inbound-booking<br/>(email→AI→auto-book)"]
+        DB_B["Supabase DB B<br/>bookings, rooms, room_types,<br/>availability_current, rpa_bot_status"]
+    end
+
+    subgraph "External"
+        STRIPE["Stripe"]
+        GMAIL["Gmail SMTP"]
+        LINE["LINE Messaging API"]
+        RPA["RPA Bots on VPS<br/>(Guru PMS + Zuzu PMS scrapers)"]
+    end
+
+    WEB -->|"fetch avail"| CF_ROOMS
+    CF_ROOMS -->|"proxy"| CF_AVAIL
+    WEB -->|"book"| CF_CHECKOUT
+    CF_CHECKOUT -->|"per-night check"| CF_AVAIL
+    CF_CHECKOUT -->|"create session"| STRIPE
+    STRIPE -->|"webhook"| CF_WEBHOOK
+    CF_WEBHOOK -->|"rpa-sync action:sync_booking"| CF_SYNC
+    CF_WEBHOOK -->|"email voucher"| GMAIL
+    CF_WEBHOOK -->|"LINE alert"| LINE
+    RPA -->|"heartbeat"| CF_HEARTBEAT
+    RPA -->|"sync bookings + avail"| CF_SYNC
+    CF_INBOUND -->|"AI parse emails"| DB_B
+```
+
+---
+
+## Part A — Critical Bug Fix (from Audit #0)
+
+### Original Bug: Guest charged → email sent → PMS insert FAILS → Guest has receipt, no room
+
+| # | Required Fix | Status | Evidence |
+|---|-------------|--------|----------|
+| 1 | Per-night availability check (server-side) | ✅ **FIXED** | [create-checkout L317-392](file:///e:/Hotel%20Project/ask-without-cost-main/ask-without-cost-main/supabase/functions/create-checkout/index.ts#L317-L392) — `enumerateStayNights()` loops each night, calls PMS `check-availability` per night |
+| 2 | Reservation hold BEFORE Stripe checkout (10 min lock) | ✅ **FIXED** | [create-checkout L416-433](file:///e:/Hotel%20Project/ask-without-cost-main/ask-without-cost-main/supabase/functions/create-checkout/index.ts#L416-L433) — `booking_holds` with `btree_gist` EXCLUDE constraint |
+| 3 | PMS insert BEFORE email send | ✅ **FIXED** | [stripe-webhook L192-377](file:///e:/Hotel%20Project/ask-without-cost-main/ask-without-cost-main/supabase/functions/stripe-webhook/index.ts#L192-L377) — PMS runs first, returns at L374 before email on failure |
+| 4 | Auto-refund if PMS insert fails | ✅ **FIXED** | [stripe-webhook L279-302](file:///e:/Hotel%20Project/ask-without-cost-main/ask-without-cost-main/supabase/functions/stripe-webhook/index.ts#L279-L302) — `stripe.refunds.create()`, booking → `refunded` |
+| 5 | Admin alert via LINE on auto-refund | ✅ **FIXED** | [stripe-webhook L322-371](file:///e:/Hotel%20Project/ask-without-cost-main/ask-without-cost-main/supabase/functions/stripe-webhook/index.ts#L322-L371) — LINE + email dual alert |
+| 6 | Transaction rollback tested with simulated failures | ❌ **NOT VERIFIED** | No automated tests exist |
+
+---
+
+## Part B — Dedup Gap Analysis (3 Ingestion Paths)
+
+### Path 1: Website → Stripe → PMS
+
+| Layer | Mechanism | Status |
+|-------|-----------|--------|
+| `create-checkout` | `idempotency_key` check (10-min window) | ✅ Works |
+| `create-checkout` | Confirmed booking overlap check | ✅ Works |
+| `create-checkout` | Active hold overlap (GiST exclusion constraint) | ✅ DB-enforced |
+| `stripe-webhook` | Fetches bookings by `stripe_session_id` | ⚠️ No idempotency guard against Stripe retries |
+| `rpa-sync` | Dedup by `external_ref` (SELECT → UPDATE/INSERT) | ⚠️ **Race condition** — no UNIQUE constraint |
+
+> [!CAUTION]
+> **Critical Bug #1 — `rpa-sync` Race Condition**: Uses SELECT-then-INSERT (lines 76-106) for dedup. Under concurrent requests with the same `external_ref`, two requests can both see "no existing row" and both INSERT. There is **no UNIQUE constraint** on `(property_id, external_ref)` — only a partial INDEX for lookups.
+
+> [!CAUTION]
+> **Critical Bug #2 — `stripe-webhook` No Idempotency**: Stripe retries webhooks up to ~16 times. If webhook succeeds but returns non-200 due to a late error (e.g., email timeout), Stripe retries and the entire flow runs again — duplicate PMS booking + duplicate emails.
+
+### Path 2: OTA Email → `inbound-booking`
+
+| Layer | Mechanism | Status |
+|-------|-----------|--------|
+| `gmail_message_id` dedup in `email_processing_log` | ✅ Works | UNIQUE constraint on `gmail_message_id` |
+| `ota_reference_id` dedup in `inbound_bookings_raw` | ✅ Works | SELECT before INSERT |
+| Auto-booked bookings don't set `external_ref` | ⚠️ Secondary risk | No dedup if gmail-addon retries |
+
+### Path 3: Public API → `public-bookings`
+
+| Layer | Mechanism | Status |
+|-------|-----------|--------|
+| `booking_reference` dedup check | ✅ Works | SELECT before INSERT |
+| Room overlap check + DB exclusion constraint | ✅ Works | Application + DB-level |
+
+---
+
+## Part C — OTA Concurrency & Overbooking (from Audit #12)
+
+> [!CAUTION]
+> **Highest-risk gap**: No protection against OTA+Website race condition:
+> 1. Guest A books on Booking.com at 14:00
+> 2. RPA syncs at 14:05 (next cycle)
+> 3. Guest B books on website at 14:03 (before sync)
+> 4. Both succeed → **overbooking**
+
+**Fix**: Add overbooking detection cron in `booking-cron` (already exists).
+
+---
+
+## Part D — Financial & Operational Gaps (from Audit #13-16)
+
+| # | Finding | Priority |
+|---|---------|----------|
+| No orphan payment detector (pending > 30min with charge) | 🔴 Blocker |
+| No VAT 7% on receipts (Thai law) | 🟡 Week-1 |
+| Two-database architecture → no unified revenue view | 🟡 Week-1 |
+| No booking modification or cancellation from website | 🟡 Week-1 |
+| Hardcoded English in booking flow UI | 🟡 Week-1 |
+| Room auto-assignment after website booking | 🟡 Week-1 |
+| No staff audit trail (who-changed-what) | 🟢 Month-1 |
+| No DNS redundancy (Ruk-Com single point of failure) | 🟢 Month-1 |
+| No secret rotation policy documented | 🟢 Month-1 |
+
+---
+
+## PROPOSED CHANGES (Prioritized)
+
+### 🔴 Phase 1 — Launch Blockers (Code Changes)
+
+---
+
+#### 1.1 [NEW] Database Migration: UNIQUE constraint on `external_ref`
+
+**File**: New SQL migration in `mind-meter-app-main/supabase/migrations/`
+
+```sql
+-- Prevent duplicate bookings from concurrent rpa-sync calls
+CREATE UNIQUE INDEX IF NOT EXISTS uq_bookings_property_external_ref
+  ON public.bookings(property_id, external_ref)
+  WHERE external_ref IS NOT NULL;
+```
+
+> [!IMPORTANT]
+> **Pre-requisite**: Must verify no existing duplicates before applying. Run:
+> ```sql
+> SELECT external_ref, property_id, COUNT(*)
+> FROM bookings WHERE external_ref IS NOT NULL
+> GROUP BY external_ref, property_id HAVING COUNT(*) > 1;
+> ```
+
+---
+
+#### 1.2 [MODIFY] `rpa-sync`: Conflict-safe INSERT pattern
+
+**File**: [rpa-sync/index.ts](file:///e:/Hotel%20Project/mind-meter-app-main/mind-meter-app-main/supabase/functions/rpa-sync/index.ts)
+
+Replace the SELECT-then-INSERT at lines 76-106 with:
+- Try INSERT first
+- If constraint violation (`23505`), fall back to UPDATE
+- This eliminates the race window entirely
+
+---
+
+#### 1.3 [MODIFY] `stripe-webhook`: Add idempotency guard
+
+**File**: [stripe-webhook/index.ts](file:///e:/Hotel%20Project/ask-without-cost-main/ask-without-cost-main/supabase/functions/stripe-webhook/index.ts)
+
+At top of `checkout.session.completed` handler (after line 93), add:
+
+```typescript
+// Idempotency: if bookings already confirmed for this session, skip
+const { data: alreadyConfirmed } = await supabase
+  .from("bookings")
+  .select("status")
+  .eq("stripe_session_id", session.id)
+  .eq("status", "confirmed")
+  .limit(1);
+
+if (alreadyConfirmed && alreadyConfirmed.length > 0) {
+  log("Webhook already processed (idempotent skip)", { sessionId: session.id });
+  return new Response(JSON.stringify({ received: true, already_processed: true }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200,
+  });
+}
+```
+
+---
+
+#### 1.4 [NEW] Overbooking Detection Cron
+
+**File**: Edit existing `booking-cron` or new scheduled function in `mind-meter-app-main`
+
+SQL query to find overlapping confirmed bookings per room + send LINE alert.
+
+---
+
+#### 1.5 [NEW] Orphan Payment Detector
+
+Cron that finds `bookings.status = 'pending'` older than 30 minutes with a `stripe_session_id`, verifies payment status via Stripe API, and auto-refunds if needed.
+
+---
+
+### 🔴 Phase 2 — Automated Test Suite
+
+---
+
+#### 2.1 [NEW] `src/test/dedup-logic.test.ts`
+
+Unit tests for dedup logic:
+- `external_ref` composite key format verification
+- `idempotency_key` duplicate detection
+- Webhook idempotency guard (skip when already confirmed)
+- Concurrent external_ref insert simulation
+
+#### 2.2 [NEW] `src/test/booking-flow.test.ts`
+
+Integration tests for full booking flow:
+- create-checkout → webhook → PMS sync (mocked)
+- PMS failure → auto-refund path
+- Hold expiration → release
+- Duplicate warning metadata passthrough
+
+#### 2.3 [NEW] `src/test/concurrent-dedup.test.ts`
+
+Load tests:
+- N parallel inserts with same `external_ref` → only 1 succeeds
+- N parallel create-checkout with same `idempotency_key` → only 1 session
+
+#### 2.4 [NEW] `src/test/chaos-scenarios.test.ts`
+
+Chaos/failure tests:
+- PMS timeout → auto-refund fires
+- Stripe webhook retry → idempotent skip
+- DB failure during hold → hold released
+- Partial PMS success (2 of 3 rooms) → full refund
+
+---
+
+### 🔴 Phase 3 — Rollback Plan & Alerts
+
+---
+
+#### 3.1 [NEW] `rollback-plan.md`
+
+Documented rollback procedure:
+- SQL to drop UNIQUE index
+- Revert `rpa-sync` to SELECT-then-INSERT
+- Revert `stripe-webhook` idempotency guard
+- Feature flag `website_bookings_enabled` → `false` (instant kill switch)
+
+#### 3.2 Alert Verification
+
+Existing `booking_flow_logs` + LINE/email alerts are already implemented. Tests will verify:
+- `pms_insert_failed` → LINE alert sent
+- `auto_refund_triggered` → Email alert sent
+- `auto_refund_failed` → Critical alert escalation
+
+---
+
+### 🟡 Phase 4 — Week-1 Post-Launch
+
+| # | Item | Approach | Lovable Credits |
+|---|------|----------|----------------|
+| W1 | Translate hardcoded booking strings | Edit Rooms.tsx translations | 2-3 |
+| W2 | VAT 7% on receipts | Stripe line items + voucher template | 3-5 |
+| W3 | Reduce `STALE_MS` from 10min to 5min | Edit check-availability | 0 (direct) |
+| W4 | Room auto-assignment in rpa-sync | Edit rpa-sync | 0 (direct) |
+| W5 | Booking cancellation page | New page + edge function | 5-8 |
+
+### 🟢 Phase 5 — Month-1 Improvements
+
+| # | Item | Approach |
+|---|------|----------|
+| M1 | Unified financial reporting | Cross-project API or SQL view |
+| M2 | Staff audit trail | SQL triggers on PMS bookings |
+| M3 | Mobile UX optimization | CSS changes |
+| M4 | Booking modification flow | New feature |
+| M5 | DNS redundancy (Cloudflare) | Infrastructure |
+| M6 | Secret rotation policy | Documentation |
+
+---
+
+## Open Questions
+
+> [!IMPORTANT]
+> **Q1: Are RPA bots currently running in production?** If so, we must STOP them and verify no existing `external_ref` duplicates before adding the UNIQUE constraint.
+
+> [!IMPORTANT]
+> **Q2: Is there a staging environment?** The 24-hour log monitoring requirement implies staging deploy. If not, we simulate via test suite + log assertions.
+
+> [!WARNING]
+> **Q3: Should `inbound-booking` set `external_ref` on auto-booked bookings?** Currently it doesn't, which means a gmail-addon retry could create a duplicate booking. Recommend adding `external_ref: \`email:${gmailMessageId}\``.
+
+> [!NOTE]
+> **Q4 (from Audit)**: Is Pratunam Family House VAT-registered? This determines if W2 is legally required.
+
+> [!NOTE]
+> **Q5 (from Audit)**: When overbooking is detected, should OTA always win (auto-refund website guest)?
+
+---
+
+## Verification Plan
+
+### Automated Tests (REQUIRED before launch)
+```bash
+cd e:\Hotel Project\ask-without-cost-main\ask-without-cost-main
+npm run test
+# Expected: ALL tests pass with 0 failures
+```
+
+### Pre-Launch SQL Verification
+```sql
+-- 1. Verify EXCLUDE constraint on booking_holds
+SELECT conname FROM pg_constraint WHERE conrelid = 'public.booking_holds'::regclass;
+
+-- 2. Verify UNIQUE index on external_ref (after migration)
+SELECT indexname FROM pg_indexes WHERE tablename = 'bookings' AND indexdef LIKE '%external_ref%';
+
+-- 3. Check for existing duplicates (run BEFORE adding UNIQUE)
+SELECT external_ref, property_id, COUNT(*)
+FROM bookings WHERE external_ref IS NOT NULL
+GROUP BY external_ref, property_id HAVING COUNT(*) > 1;
+```
+
+### End-to-End Test (Stripe Test Mode)
+1. Book test room → verify hold → Stripe session → payment
+2. After payment: PMS `rpa-sync` called → booking in PMS DB
+3. Email + LINE notification received
+4. `booking_flow_logs` has entries
+
+### Failure Path Test
+1. Misconfigure `PMS_SUPABASE_URL` → book → verify:
+   - Auto-refund issued
+   - LINE + email alerts sent
+   - Booking marked `refunded`
+
+### Rollback Test
+1. Execute rollback SQL on staging
+2. Verify system returns to pre-change behavior
+3. Confirm no data loss
