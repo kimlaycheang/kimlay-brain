@@ -1,0 +1,26 @@
+{
+  "routes": {
+    "plan": "nvidia/nemotron-3-ultra-550b-a55b",
+    "code": "deepseek-ai/deepseek-v4-flash",
+    "content": "z-ai/glm-5.1",
+    "vision": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+    "default": "z-ai/glm-5.1"
+  },
+  "fallbacks": {
+    "z-ai/glm-5.1": "minimaxai/minimax-m2.7",
+    "deepseek-ai/deepseek-v4-flash": "deepseek-ai/deepseek-v4-pro"
+  },
+  "displayNames": {
+    "nvidia/nemotron-3-ultra-550b-a55b": "Nemotron-Ultra",
+    "deepseek-ai/deepseek-v4-flash": "DeepSeek-Flash",
+    "deepseek-ai/deepseek-v4-pro": "DeepSeek-Pro",
+    "z-ai/glm-5.1": "GLM-5.1",
+    "minimaxai/minimax-m2.7": "MiniMax-M2.7",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning": "Nemotron-Omni"
+  },
+  "keywords": {
+    "plan": ["plan", "strategy", "roadmap", "planning"],
+    "code": ["code", "dev", "bug", "function", "script", "debug"],
+    "vision": ["image", "video", "photo", "picture", "vision"]
+  }
+}

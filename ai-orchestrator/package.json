@@ -1,0 +1,14 @@
+{
+  "name": "kim-orchestrator",
+  "version": "1.0.0",
+  "description": "Telegram AI orchestrator routing to NVIDIA NIM models",
+  "main": "orchestrator.js",
+  "scripts": {
+    "start": "node orchestrator.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "node-telegram-bot-api": "^0.66.0",
+    "openai": "^4.55.0"
+  }
+}
