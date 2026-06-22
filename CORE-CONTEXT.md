@@ -73,7 +73,7 @@
 
 ## Hard Rules (apply to every task)
 
-1. **n8n is PERMANENTLY BANNED** across all projects
+1. **n8n:** use only if no better option exists (MCP → Claude Code → script → n8n, in that order)
 2. **Never deploy without Kim's approval**
 3. **git pull before editing → git push after finishing** — always
 4. Never edit the same file from Lovable and PC at the same time
