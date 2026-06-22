@@ -82,3 +82,48 @@
 - **งานง่าย/draft** → /w2 ใน Telegram
 - **ข้อมูล hotel จริง** → Supabase MCP
 - **ข้อมูล Facebook Ads** → Windsor.ai MCP
+
+## Hermes Workers — Built-in Skills (60 skills)
+ใช้ใน Telegram: /w1 skill-name [task]
+
+### ที่เกี่ยวข้องกับงานคุณ
+| Skill | ใช้เมื่อ |
+|-------|---------|
+| powerpoint | สร้าง PPT report ธุรกิจ |
+| google-workspace | จัดการ Google Docs/Sheets/Drive |
+| notion | sync notes |
+| nano-pdf | อ่าน/สรุป PDF |
+| ocr-and-documents | อ่านรูปภาพ/เอกสาร |
+| youtube-content | สร้าง script/content จาก YouTube |
+| code-review | review โค้ด Pratunam/BT Express |
+| systematic-debugging | debug บอท/RPA |
+| plan | วางแผนงานใหม่ |
+| arxiv | research logistics/hotel trends |
+| blogwatcher | monitor ข่าว Thailand-Cambodia |
+
+## Claude Code — Plugin Skills
+| Plugin | Skill | ใช้เมื่อ |
+|--------|-------|---------|
+| telegram | access, configure | ตั้งค่า Telegram bot |
+| mcp-server-dev | build-mcp-server | สร้าง MCP connector ใหม่ |
+| claude-md-management | claude-md-improver | ปรับปรุง CLAUDE.md |
+| session-report | session-report | สรุปงานที่ทำใน session |
+| graphify | /graphify | แปลง data → knowledge graph |
+| system-audit | /system-audit | audit VPS/PC config |
+| frontend-design | /frontend-design | review UI/UX |
+| skill-creator | /skill-creator | สร้าง skill ใหม่ |
+| remotion | /remotion | สร้างวิดีโออัตโนมัติ |
+
+## Quick Decision — ใช้อะไร
+| สถานการณ์ | ใช้ |
+|-----------|-----|
+| วางแผน/คิด/ตัดสินใจ | Claude chat หรือ terminal |
+| งาน background ไม่รอ | /fork |
+| 4 ธุรกิจพร้อมกัน | /batch |
+| งานประจำ/cron | /schedule |
+| code/debug/complex | /w1 (DeepSeek) |
+| draft/content/ง่าย | /w2 (Qwen ฟรี) |
+| สร้าง MCP ใหม่ | mcp-server-dev skill |
+| ปรับ CLAUDE.md | claude-md-improver |
+| audit ระบบ | /system-audit |
+| knowledge graph | /graphify |
