@@ -36,9 +36,9 @@
 ## Hermes Workers — Telegram Routing
 | Command | ไปที่ | โมเดล | ค่าใช้จ่าย |
 |---------|------|-------|-----------|
-| /w1 [task] | @Hermes_Nay_bot | DeepSeek V4-Flash | $0.09/1M |
-| /w2 [task] | @Claude_kimlay_bot | Qwen 3 Coder | $0 ฟรี |
-| ESCALATE (Qwen ตอบ) | ส่งซ้ำด้วย /w1 | DeepSeek | - |
+| !w1 [task] | @Hermes_Nay_bot | DeepSeek V4-Flash | $0.09/1M |
+| !w2 [task] | @Claude_kimlay_bot | Qwen 3 Coder | $0 ฟรี |
+| ESCALATE (Qwen ตอบ) | ส่งซ้ำด้วย !w1 | DeepSeek | - |
 
 ## Hermes Workers — File Locations
 | File | Path |
@@ -78,13 +78,13 @@
 - **งาน background** → /fork ใน Claude Code
 - **งานขนาน 4 ธุรกิจ** → /batch ใน Claude Code  
 - **งาน scheduled/อัตโนมัติ** → /schedule ใน Claude Code
-- **งาน coding/complex** → /w1 ใน Telegram
-- **งานง่าย/draft** → /w2 ใน Telegram
+- **งาน coding/complex** → !w1 ใน Telegram
+- **งานง่าย/draft** → !w2 ใน Telegram
 - **ข้อมูล hotel จริง** → Supabase MCP
 - **ข้อมูล Facebook Ads** → Windsor.ai MCP
 
 ## Hermes Workers — Built-in Skills (60 skills)
-ใช้ใน Telegram: /w1 skill-name [task]
+ใช้ใน Telegram: !w1 skill-name [task]
 
 ### ที่เกี่ยวข้องกับงานคุณ
 | Skill | ใช้เมื่อ |
@@ -121,8 +121,8 @@
 | งาน background ไม่รอ | /fork |
 | 4 ธุรกิจพร้อมกัน | /batch |
 | งานประจำ/cron | /schedule |
-| code/debug/complex | /w1 (DeepSeek) |
-| draft/content/ง่าย | /w2 (Qwen ฟรี) |
+| code/debug/complex | !w1 (DeepSeek) |
+| draft/content/ง่าย | !w2 (Qwen ฟรี) |
 | สร้าง MCP ใหม่ | mcp-server-dev skill |
 | ปรับ CLAUDE.md | claude-md-improver |
 | audit ระบบ | /system-audit |
