@@ -18,37 +18,55 @@
 
 
 
-\### Phase 1 — IN PROGRESS ⏳
+\### Phase 1 — DONE ✅ (June 13, 2026)
 
-\- Task A: Overbooking fix ✅ DONE (June 13, 2026)
+\- Task A: Overbooking fix ✅
 
-\- Task B: Kill switch fix ✅ DONE (June 13, 2026)
+\- Task B: Kill switch ✅
 
-\- Task C: Puppeteer RPA bot ⏳ IN PROGRESS
+\- Task C: Puppeteer bot reads Guru PMS ✅
+
+\- Bot reads room NUMBER (513, 523 etc.) ✅
+
+\- Bot maps to real room\_id UUID ✅
+
+\- 34 rooms synced from Guru ✅
+
+\- Supabase migration — added room\_id column ✅
+
+\- rpa-sync get\_rooms action deployed ✅
+
+\- Cron job every 5 min 08:00-22:00 ✅
 
 
 
-\### Phase 2 — PENDING ⬜
+\### Phase 2 — IN PROGRESS ⏳
 
-\- Website write-back to Guru/Zuzu
+\- Fix Internal server error in supabase-client.js
 
-\- Shadow mode 1-2 weeks before live
+\- Verify data sync working correctly
+
+\- Shadow mode 1-2 weeks
 
 
 
 \### Phase 3 — PENDING ⬜
 
+\- Add Zuzu bot
+
 \- Gmail reconciliation
+
+\- Go live
 
 
 
 \## Critical Rules
 
-1\. Never assign room NUMBER via bot — TYPE only
+1\. Read-only until Phase 2 verified
 
-2\. Read-only until Phase 1 proven
+2\. Kill switch: system\_flags.rpa\_availability\_sync\_enabled
 
-3\. Kill switch: system\_flags.rpa\_enabled
+3\. Bot syncs by room\_id — never assigns room manually
 
 4\. Puppeteer runs 08:00-22:00 Bangkok only
 
@@ -58,5 +76,5 @@
 
 \## Last Updated
 
-June 13, 2026 — Task A + B completed
+June 13, 2026 — Phase 1 complete, Phase 2 started
 

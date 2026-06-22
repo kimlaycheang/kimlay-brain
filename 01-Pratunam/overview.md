@@ -10,7 +10,7 @@
 
 \- FM2: Soi 17 → Guru PMS → \~34 rooms
 
-\- Guest nationality: Myanmar #1, Indonesia #2, Philippines #3
+\- Guest nationality (OTA): Philippines #1, Thailand #2, Indonesia #3 - Guest nationality (Direct/FB+Telegram): Myanmar-led (untagged → N/A)
 
 
 
