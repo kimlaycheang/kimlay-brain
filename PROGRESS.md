@@ -12,3 +12,4 @@
 - [2026-06-22] SECURITY — Pratunam website C1/C2/H2/H3/H4 fixed, all edge functions deployed via Lovable
 - [2026-06-22] ROUTING — Hermes !w1/!w2 gateway-level routing confirmed working
 - [2026-06-22] PHASE1 — AI team complete: Boss(Claude)+Worker1(DeepSeek !w1)+Worker2(Qwen !w2) online
+- [2026-06-22] WORKER-FREE — switched to DeepSeek V4-Flash primary, Qwen free fallback, api_max_retries=1
