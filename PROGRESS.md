@@ -16,3 +16,4 @@
 
 ## 2026-06-23 — Hostinger MCP connection
 - [2026-06-23] CONNECTORS — Configured Hostinger MCP servers (hosting, domains, dns, billing, reach) in .mcp.json, .claude.json, and mcp_config.json
+- [2026-06-23] SKILLS — Installed 'superpowers' skills repository to global plugins folder
