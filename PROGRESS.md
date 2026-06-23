@@ -13,3 +13,6 @@
 - [2026-06-22] ROUTING — Hermes !w1/!w2 gateway-level routing confirmed working
 - [2026-06-22] PHASE1 — AI team complete: Boss(Claude)+Worker1(DeepSeek !w1)+Worker2(Qwen !w2) online
 - [2026-06-22] WORKER-FREE — switched to DeepSeek V4-Flash primary, Qwen free fallback, api_max_retries=1
+
+## 2026-06-23 — Hostinger MCP connection
+- [2026-06-23] CONNECTORS — Configured Hostinger MCP servers (hosting, domains, dns, billing, reach) in .mcp.json, .claude.json, and mcp_config.json
